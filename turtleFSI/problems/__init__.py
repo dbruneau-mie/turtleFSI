@@ -58,15 +58,28 @@ default_variables = dict(
     dx_f_id=1,       # Domain id of the fluid domain
     dx_s_id=2,       # Domain id of the solid domain
 
-    # Meterial settings
-    rho_f=1.0E3,     # Density of the fluid
-    mu_f=1.0,        # Fluid dynamic viscosity
-    rho_s=1.0E3,     # Density of the solid
-    mu_s=5.0E4,      # Shear modulus or 2nd Lame Coef. for the solid
-    nu_s=0.45,       # Poisson ratio
-    lambda_s=4.5E5,  # 1st Lame Coef. for the solid
-    gravity=None,    # Gravitational force on the solid
-    Um=0.8,          # Maximum velocity at inlet
+    # Material settings
+    rho_f=1.0E3,                               # Density of the fluid
+    mu_f=1.0,                                  # Fluid dynamic viscosity
+    rho_s=1.0E3,                               # Density of the solid
+    material_model="StVenantKirchoff",         # ["StVenantKirchoff",""StVenantKirchoffEnergy","NeoHookean","MooneyRivlin","Gent","Exponential"] Material model for solid 
+    # For all solid material models
+    mu_s=5.0E4,                                # Shear modulus or 2nd Lame Coef. for solid
+    # For "StVenantKirchoff",""StVenantKirchoffEnergy","NeoHookean","MooneyRivlin" material models    
+    lambda_s=4.5E5,                            # 1st Lame Coef. for the solid
+    # For "Gent" material model  
+    Jm=10,                                     # Coef. for Gent material model, Jm = Im - 3 , Jm>>1
+    # For "MooneyRivlin" and Exponential material model
+    C01=5.0E4/4,                                # Coef. for Mooney-Rivlin material model, empirically determined material constant
+    C10=5.0E4/4,                                # Coef. for Mooney-Rivlin material model, empirically determined material constant
+    C11=0.0,                                    # Coef. for Mooney-Rivlin material model, empirically determined material constant
+    
+    # For Exponential material model
+    C02=5.0E4/4,                                # Coef. for Exponential material model, empirically determined material constant
+    # Seemingly unused in any of the material models (keep for now)
+    nu_s=0.45,                                 # Poisson ratio (Unused?)
+    gravity=None,                              # Gravitational force on the solid
+    Um=0.8,                                    # Maximum velocity at inlet
 
     # Variational formulations
     fluid="fluid",                             # ["fluid", "no_fluid"] Turn off fluid and only solve the solid problem

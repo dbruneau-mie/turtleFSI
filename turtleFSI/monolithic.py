@@ -111,6 +111,28 @@ dx = Measure("dx", subdomain_data=domains)
 dx_f = dx(dx_f_id, subdomain_data=domains)
 dx_s = dx(dx_s_id, subdomain_data=domains)
 
+# Material Model Selection
+material_parameters={}
+material_parameters["material_model"]=material_model
+if material_model == "Exponential":
+    material_parameters["C01"]=C01
+    material_parameters["C02"]=C02
+else:
+    material_parameters["mu_s"]=mu_s
+    if material_model != "Gent":
+        material_parameters["lambda_s"]=lambda_s
+    else:
+        material_parameters["Jm"]=Jm
+    if material_model == "MooneyRivlin":
+        material_parameters["C01"]=C01
+        material_parameters["C10"]=C10
+        material_parameters["C11"]=C11
+
+if MPI.rank(MPI.comm_world) == 0:
+    print("{} material model selected, using following parameters".format(material_model))
+    print(material_parameters)
+
+
 # Define solver
 # Adding the Matrix() argument is a FEniCS 2018.1.0 hack
 up_sol = LUSolver(Matrix(), linear_solver)

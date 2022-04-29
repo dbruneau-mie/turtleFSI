@@ -7,7 +7,7 @@ from turtleFSI.modules import *
 from dolfin import Constant, inner, grad
 
 
-def solid_setup(d_, v_, phi, psi, dx_s, mu_s, rho_s, lambda_s, k, theta,
+def solid_setup(d_, v_,p_, phi, psi, dx_s, rho_s, material_parameters, k, theta,
                 gravity, **namespace):
     """
     ALE formulation (theta-scheme) of the non-linear elastic problem:
@@ -25,6 +25,9 @@ def solid_setup(d_, v_, phi, psi, dx_s, mu_s, rho_s, lambda_s, k, theta,
     theta0 = Constant(theta)
     theta1 = Constant(1 - theta)
 
+    
+
+
     # Temporal term and convection
     F_solid_linear = (rho_s/k * inner(v_["n"] - v_["n-1"], psi)*dx_s
                       + delta * rho_s * (1 / k) * inner(d_["n"] - d_["n-1"], phi) * dx_s
@@ -35,7 +38,7 @@ def solid_setup(d_, v_, phi, psi, dx_s, mu_s, rho_s, lambda_s, k, theta,
         F_solid_linear -= inner(Constant((0, -gravity * rho_s)), psi)*dx_s
 
     # Stress
-    F_solid_nonlinear = theta0 * inner(Piola1(d_["n"], lambda_s, mu_s), grad(psi)) * dx_s
-    F_solid_linear += theta1 * inner(Piola1(d_["n-1"], lambda_s, mu_s), grad(psi)) * dx_s
 
+    F_solid_nonlinear = theta0 * inner(Piola1(d_["n"], material_parameters), grad(psi)) * dx_s
+    F_solid_linear += theta1 * inner(Piola1(d_["n-1"], material_parameters), grad(psi)) * dx_s
     return dict(F_solid_linear=F_solid_linear, F_solid_nonlinear=F_solid_nonlinear)
