@@ -8,7 +8,7 @@ from turtleFSI.modules import *
 from dolfin import Constant, inner, grad, MPI
 
 
-def solid_setup(d_, v_, phi, psi, dx_s, dx_s_id_list, solid_properties, k, theta,
+def solid_setup(d_, v_, p_, phi, psi, gamma, dx_s, dx_s_id_list, solid_properties, k, theta,
                 gravity, mesh, **namespace):
 
     # DB added gravity in 3d functionality and multi material capability 16/3/21
@@ -26,6 +26,7 @@ def solid_setup(d_, v_, phi, psi, dx_s, dx_s_id_list, solid_properties, k, theta
     # we 'make this extra important' by multiplying with a large number delta.
 
     delta = 1.0E7
+    alpha_p = 10e-9
 
     # Theta scheme constants
     theta0 = Constant(theta)
@@ -60,6 +61,12 @@ def solid_setup(d_, v_, phi, psi, dx_s, dx_s_id_list, solid_properties, k, theta
         # Stress (Note that if viscoelasticity is used, Piola1() is no longer the total stress, it is the non-rate dependant (elastic) component of the stress)
         F_solid_nonlinear += theta0 * inner(Piola1(d_["n"], solid_properties[solid_region]), grad(psi)) * dx_s[solid_region]
         F_solid_linear += theta1 * inner(Piola1(d_["n-1"], solid_properties[solid_region]), grad(psi)) * dx_s[solid_region]
+
+        F_solid_linear += alpha_p * inner( grad(p_["n"]), grad(gamma) ) * dx_s[solid_region]
+
+
+        #F_fluid_nonlinear += inner(J_(d_["n"]) * sigma_f_p(p_["n"], d_["n"]) *
+
         # Gravity
         if gravity is not None and mesh.geometry().dim() == 2:
             F_solid_linear -= inner(Constant((0, -gravity * rho_s)), psi)*dx_s[solid_region] 
