@@ -10,6 +10,7 @@ commandline.
 from dolfin import parameters, XDMFFile, MPI, assign, Mesh, refine, project, VectorElement, FiniteElement, PETScDMCollection, FunctionSpace, Function
 import pickle
 from pathlib import Path
+from shutil import copytree
 from xml.etree import ElementTree as ET
 
 _compiler_parameters = dict(parameters["form_compiler"])
@@ -140,6 +141,7 @@ def create_folders(folder, sub_folder, restart_folder, **namespace):
     # Folders for visualization and checkpointing
     checkpoint_folder = path.joinpath("Checkpoint")
     visualization_folder = path.joinpath("Visualization")
+    previous_checkpoints_folder = path.joinpath("Previous_Checkpoints")
 
     # Check if there exists previous visualization files, if so move and change name
     if list(visualization_folder.glob("*")) != []:
@@ -169,13 +171,15 @@ def create_folders(folder, sub_folder, restart_folder, **namespace):
     if MPI.rank(MPI.comm_world) == 0:
         checkpoint_folder.mkdir(parents=True, exist_ok=True)
         visualization_folder.mkdir(parents=True, exist_ok=True)
+        previous_checkpoints_folder.mkdir(parents=True, exist_ok=True)
 
     return dict(checkpoint_folder=checkpoint_folder,
                 visualization_folder=visualization_folder,
+                previous_checkpoints_folder=previous_checkpoints_folder,
                 results_folder=path, run_number=run_number)
 
 
-def checkpoint(dvp_, default_variables, checkpoint_folder, mesh, **namespace):
+def checkpoint(dvp_, default_variables, checkpoint_folder, previous_checkpoints_folder, mesh, counter, **namespace):
     """Utility function for storing the current parameters and the last two time steps"""
     # Only update variables that exists in default_variables
     default_variables.update((k, namespace[k]) for k in (default_variables.keys() & namespace.keys()))
@@ -211,6 +215,10 @@ def checkpoint(dvp_, default_variables, checkpoint_folder, mesh, **namespace):
 
             with open(new_name, "w") as f:
                 f.write(text)
+
+        current_checkpoint_path = previous_checkpoints_folder.joinpath("Timestep_" + str(counter))
+        dest = copytree(checkpoint_folder, current_checkpoint_path)
+        print("Copied checkpoint to backup folder: " + str(current_checkpoint_path))
 
 
 def save_files_visualization(visualization_folder, dvp_, t, save_deg, v_deg, p_deg, mesh, domains, **namespace):
