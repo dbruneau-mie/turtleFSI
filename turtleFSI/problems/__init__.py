@@ -10,7 +10,7 @@ commandline.
 from dolfin import parameters, XDMFFile, MPI, assign, Mesh, refine, project, VectorElement, FiniteElement, PETScDMCollection, FunctionSpace, Function
 import pickle
 from pathlib import Path
-from shutil import copytree
+from shutil import copytree, rmtree
 from xml.etree import ElementTree as ET
 
 _compiler_parameters = dict(parameters["form_compiler"])
@@ -48,7 +48,7 @@ default_variables = dict(
                      # (theta=0.5+dt : gives a better long-term numerical stability)
     T=1,             # end time
     t=0,             # start at time t
-    counter=0,       # time step (should be 0 unless restart_path is not None)
+    counter=-1,       # time step (should be -1 unless restart_path is not None)
 
     # Spatial settings
     v_deg=2,         # velocity degree
@@ -179,7 +179,7 @@ def create_folders(folder, sub_folder, restart_folder, **namespace):
                 results_folder=path, run_number=run_number)
 
 
-def checkpoint(dvp_, default_variables, checkpoint_folder, previous_checkpoints_folder, mesh, counter, **namespace):
+def checkpoint(dvp_, default_variables, checkpoint_folder, previous_checkpoints_folder, mesh, **namespace):
     """Utility function for storing the current parameters and the last two time steps"""
     # Only update variables that exists in default_variables
     default_variables.update((k, namespace[k]) for k in (default_variables.keys() & namespace.keys()))
@@ -216,7 +216,11 @@ def checkpoint(dvp_, default_variables, checkpoint_folder, previous_checkpoints_
             with open(new_name, "w") as f:
                 f.write(text)
 
-        current_checkpoint_path = previous_checkpoints_folder.joinpath("Timestep_" + str(counter))
+        current_checkpoint_path = previous_checkpoints_folder.joinpath("Timestep_" + str(default_variables["counter"]))
+        if current_checkpoint_path.exists():
+            rmtree(current_checkpoint_path)
+            print("Overwriting old checkpoint: " + str(current_checkpoint_path) + " Checkpoint is a duplicate.")
+
         dest = copytree(checkpoint_folder, current_checkpoint_path)
         print("Copied checkpoint to backup folder: " + str(current_checkpoint_path))
 
