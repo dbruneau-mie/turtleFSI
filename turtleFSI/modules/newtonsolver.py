@@ -3,7 +3,7 @@
 # the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 # PURPOSE.
 
-from dolfin import assemble, derivative, TrialFunction, Matrix, norm, MPI
+from dolfin import assemble, derivative, TrialFunction, Matrix, norm, MPI, solve
 
 
 def solver_setup(F_fluid_linear, F_fluid_nonlinear, F_solid_linear, F_solid_nonlinear,
@@ -18,7 +18,7 @@ def solver_setup(F_fluid_linear, F_fluid_nonlinear, F_solid_linear, F_solid_nonl
     chi = TrialFunction(DVP)
     J_linear = derivative(F_lin, dvp_["n"], chi)
     J_nonlinear = derivative(F_nonlin, dvp_["n"], chi)
-
+    J_total = J_nonlinear + J_linear
     A_pre = assemble(J_linear, form_compiler_parameters=compiler_parameters,
                      keep_diagonal=True)
     A = Matrix(A_pre)
@@ -27,10 +27,10 @@ def solver_setup(F_fluid_linear, F_fluid_nonlinear, F_solid_linear, F_solid_nonl
     # Option not available in FEniCS 2018.1.0
     # up_sol.parameters['reuse_factorization'] = True
 
-    return dict(F=F, J_nonlinear=J_nonlinear, A_pre=A_pre, A=A, b=b, up_sol=up_sol)
+    return dict(F=F, J_nonlinear=J_nonlinear, J_total=J_total, A_pre=A_pre, A=A, b=b, up_sol=up_sol)
 
 
-def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_tstep, compiler_parameters,
+def newtonsolver(F, J_nonlinear, J_total, A_pre, A, b, bcs, lmbda, recompute, recompute_tstep, compiler_parameters,
                  dvp_, up_sol, dvp_res, rtol, atol, max_it, counter, first_step_num, verbose, **namespace):
     """
     Solve the non-linear system of equations with Newton scheme. The standard is to compute the Jacobian
@@ -61,26 +61,31 @@ def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_t
         # Recompute Jacobian on first step of simulation (important if restart is used)
         recompute_initialize = iter == 0 and counter == first_step_num
 
-        if recompute_for_timestep or recompute_frequency or recompute_residual or recompute_initialize:
-            if MPI.rank(MPI.comm_world) == 0 and verbose:
-                print("Compute Jacobian matrix")
-            A = assemble(J_nonlinear, tensor=A,
-                         form_compiler_parameters=compiler_parameters,
-                         keep_diagonal=True)
-            A.axpy(1.0, A_pre, True)
-            A.ident_zeros()
-            [bc.apply(A) for bc in bcs]
-            up_sol.set_operator(A)
+        #if recompute_for_timestep or recompute_frequency or recompute_residual or recompute_initialize:
+        #    if MPI.rank(MPI.comm_world) == 0 and verbose:
+        #        print("Compute Jacobian matrix")
+        #    A = assemble(J_nonlinear, tensor=A,
+        #                 form_compiler_parameters=compiler_parameters,
+        #                 keep_diagonal=True)
+        #    A.axpy(1.0, A_pre, True)
+        #    A.ident_zeros()
+        #    [bc.apply(A) for bc in bcs]
+        #    up_sol.set_operator(A)
+#
+        ## Compute right hand side
+        #b = assemble(-F, tensor=b)
+#
+        ## Apply boundary conditions and solve
+        #[bc.apply(b, dvp_["n"].vector()) for bc in bcs]
+        #up_sol.solve(dvp_res.vector(), b)
 
-        # Compute right hand side
-        b = assemble(-F, tensor=b)
 
-        # Apply boundary conditions and solve
-        [bc.apply(b, dvp_["n"].vector()) for bc in bcs]
-        up_sol.solve(dvp_res.vector(), b)
+        solve(J_total == -F, dvp_res, bcs)#, solver_parameters={'linear_solver': 'gmres', 'preconditioner': 'ilu'})
         dvp_["n"].vector().axpy(lmbda, dvp_res.vector())
+        b = assemble(-F, tensor=b)
         [bc.apply(dvp_["n"].vector()) for bc in bcs]
-
+        # Apply boundary conditions and solve
+        [bc.apply(b) for bc in bcs]
         # Reset residuals
         last_residual = residual
         last_rel_res = rel_res
