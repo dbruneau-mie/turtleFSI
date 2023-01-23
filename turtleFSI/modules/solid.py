@@ -7,8 +7,8 @@ from turtleFSI.modules import *
 from turtleFSI.problems import info_blue
 from dolfin import Constant, inner, grad, MPI
 
-def solid_setup(d_, v_, phi, psi, dx_s, ds_s, dx_s_id_list, ds_s_ext_id_list, solid_properties, k, theta,
-                gravity, mesh, robin_bc, k_s, c_s, **namespace):
+def solid_setup(d_, v_,p_, phi, psi,gamma, dx_s, ds_s, dx_s_id_list, ds_s_ext_id_list, solid_properties, k, theta,
+                gravity, lift_p, mesh, robin_bc, k_s, c_s, **namespace):
 
     # DB added gravity in 3d functionality and multi material capability 16/3/21
     #
@@ -64,7 +64,11 @@ def solid_setup(d_, v_, phi, psi, dx_s, ds_s, dx_s_id_list, ds_s_ext_id_list, so
             F_solid_linear -= inner(Constant((0, -gravity * rho_s)), psi)*dx_s[solid_region] 
         elif gravity is not None and mesh.geometry().dim() == 3:
             F_solid_linear -= inner(Constant((0, -gravity * rho_s,0)), psi)*dx_s[solid_region] 
-            
+
+        if lift_p:
+            alpha_p = 10e-9
+            F_solid_linear += alpha_p * inner( grad(p_["n"]), grad(gamma) ) * dx_s[solid_region]
+    
     # Robin BC
     """
     The derivation comes from the eq.(9) in the followling paper:

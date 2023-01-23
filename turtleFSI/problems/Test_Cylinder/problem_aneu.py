@@ -27,8 +27,8 @@ def set_problem_parameters(default_variables, **namespace):
 
     default_variables.update(dict(
         T=0.02, # Simulation end time
-        dt=0.001, # Timne step size
-        theta=0.501, # Theta scheme (implicit/explicit time stepping)
+        dt=0.0001, # Timne step size
+        theta=0.5001, # Theta scheme (implicit/explicit time stepping)
         atol=1e-5, # Absolute tolerance in the Newton solver
         rtol=1e-5,# Relative tolerance in the Newton solver
         mesh_file="artery_coarse_rescaled", # duh
@@ -45,6 +45,7 @@ def set_problem_parameters(default_variables, **namespace):
         mu_s=mu_s_val,     # Solid shear modulus or 2nd Lame Coef. [Pa]
         nu_s=nu_s_val,      # Solid Poisson ratio [-]
         lambda_s=lambda_s_val,  # Solid 1st Lame Coef. [Pa]
+        compiler_parameters=_compiler_parameters, 
 
         dx_f_id=1,      # ID of marker in the fluid domain. When reading the mesh, the fuid domain is assigned with a 1. Old crap :)
         dx_s_id=2,      # ID of marker in the solid domain
@@ -97,53 +98,6 @@ def get_mesh_domain_and_boundaries(mesh_file, fsi_id, rigid_id, outer_wall_id, f
     ff = File("domains/boundaries.pvd")
     ff << boundaries
     return mesh, domains, boundaries
-
-
-class StokesPrb():
-
-    def __init__(self, mesh, domains, boundaries, dsi, inlet_id, outlet_id1, normal, mu_f):
-
-        self.mesh = mesh
-        self.ve = VectorElement('CG', self.mesh.ufl_cell(), 2)
-        self.pe = FiniteElement('CG', self.mesh.ufl_cell(), 1)
-        self.Elem = MixedElement([self.ve, self.pe])
-        self.VP = FunctionSpace(self.mesh, self.Elem)
-
-        self.u_inflow_exp = VelInPara(t=0.0, t_ramp=0.0, n=normal, dsi=dsi, mesh=mesh, degree=3)
-        self.u_inlet = DirichletBC(self.VP.sub(0), self.u_inflow_exp, boundaries, inlet_id)
-        self.u_fsi1 = DirichletBC(self.VP.sub(0), ((0.0, 0.0, 0.0)), boundaries, 11)
-        self.u_fsi2 = DirichletBC(self.VP.sub(0), ((0.0, 0.0, 0.0)), boundaries, 22)
-        self.u_fsi3 = DirichletBC(self.VP.sub(0), ((0.0, 0.0, 0.0)), boundaries, 33)
-
-        self.Pout_val = Constant(0.0)
-
-        self.bcs = [self.u_inlet, self.u_fsi1, self.u_fsi2, self.u_fsi3]
-
-        self.ds = Measure("ds", domain=self.mesh, subdomain_data=boundaries)
-        self.n = FacetNormal(self.mesh)
-        # Define variational problem
-        (self.u, self.p) = TrialFunctions(self.VP)
-        (self.v, self.q) = TestFunctions(self.VP)
-        f = Constant((0.0, 0.0, 0.0))
-        self.a = (mu_f*inner(grad(self.u), grad(self.v))*dx
-                  - self.p*div(self.v)*dx
-                  + self.q*div(self.u)*dx)
-        self.L = (inner(f, self.v)*dx
-                  - self.Pout_val * inner(self.n, self.v)*self.ds(outlet_id1))
-
-    def solve(self):
-
-        # Solution vector
-        self.w = Function(self.VP)
-        # Assemble system and Solve
-        A, B = assemble_system(self.a, self.L, self.bcs)
-        #solve(A, self.w.vector(), B, "minres", "amg")
-        loc_sol = LUSolver(Matrix(), "mumps")
-        loc_sol.solve(A, self.w.vector(), B)
-        # Get sub-functions
-        self.u, self.p = self.w.split(deepcopy=True)
-
-        return self.u, self.p
 
 
 class VelInPara(UserExpression):
@@ -233,16 +187,6 @@ def create_bcs(dvp_, DVP, mesh, boundaries, domains, mu_f,
 
     # Assemble boundary conditions
     bcs = [u_inlet, d_inlet,  u_inlet_s, d_inlet_s, d_rigid]
-
-    # Solve Stokes problem
-    Stokes = StokesPrb(mesh, domains, boundaries, dsi, inlet_id, outlet_id1, normal, mu_f)
-    sol = Stokes.solve()
-    assign(dvp_["n"].sub(1), sol[0])
-    assign(dvp_["n"].sub(2), sol[1])
-    assign(dvp_["n-1"].sub(1), sol[0])
-    assign(dvp_["n-1"].sub(2), sol[1])
-    assign(dvp_["n-2"].sub(1), sol[0])
-    assign(dvp_["n-2"].sub(2), sol[1])
 
     return dict(bcs=bcs, u_inflow_exp=u_inflow_exp, p_out_bc_val=p_out_bc_val,
                 F_solid_linear=F_solid_linear)

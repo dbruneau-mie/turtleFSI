@@ -18,6 +18,7 @@ def solver_setup(F_fluid_linear, F_fluid_nonlinear, F_solid_linear, F_solid_nonl
     chi = TrialFunction(DVP)
     J_linear = derivative(F_lin, dvp_["n"], chi)
     J_nonlinear = derivative(F_nonlin, dvp_["n"], chi)
+    J_total = derivative(F, dvp_["n"], chi)
 
     A_pre = assemble(J_linear, form_compiler_parameters=compiler_parameters,
                      keep_diagonal=True)
@@ -27,7 +28,7 @@ def solver_setup(F_fluid_linear, F_fluid_nonlinear, F_solid_linear, F_solid_nonl
     # Option not available in FEniCS 2018.1.0
     # up_sol.parameters['reuse_factorization'] = True
 
-    return dict(F=F, J_nonlinear=J_nonlinear, A_pre=A_pre, A=A, b=b, up_sol=up_sol)
+    return dict(F=F,F_lin=F_lin, J_linear=J_linear, J_nonlinear=J_nonlinear, J_total=J_total, A_pre=A_pre, A=A, b=b, up_sol=up_sol)
 
 
 def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_tstep, compiler_parameters,
@@ -64,6 +65,7 @@ def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_t
         if recompute_for_timestep or recompute_frequency or recompute_residual or recompute_initialize:
             if MPI.rank(MPI.comm_world) == 0 and verbose:
                 print("Compute Jacobian matrix")
+                # https://fenicsproject.org/qa/1650/assembling-matrix-equation-takes-longer-than-its-solution/
             A = assemble(J_nonlinear, tensor=A,
                          form_compiler_parameters=compiler_parameters,
                          keep_diagonal=True)

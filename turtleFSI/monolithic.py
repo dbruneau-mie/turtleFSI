@@ -153,6 +153,46 @@ timer.start()
 previous_t = 0.0
 stop = False
 first_step_num = counter # This is so that the solver will recompute the jacobian on the first step of the simulation
+
+
+#print(info(NonlinearVariationalSolver.default_parameters(), 1))
+#print(list_krylov_solver_preconditioners())
+
+# https://fenicsproject.discourse.group/t/default-absolute-tolerance-and-relative-tolerance/3829/4
+class CustomSolver(NewtonSolver):
+    def __init__(self):
+        NewtonSolver.__init__(self, mesh.mpi_comm(),
+                              PETScKrylovSolver(), PETScFactory.instance())
+
+    def solver_setup(self, A, P, problem, iteration):
+        self.linear_solver().set_operator(A)
+
+        PETScOptions.set("ksp_type", "gmres")
+        PETScOptions.set("ksp_monitor")
+        PETScOptions.set("pc_type", "ilu")
+
+        self.linear_solver().set_from_options()
+
+class Problem(NonlinearProblem):
+    def __init__(self, J, F, bcs, compiler_parameters):
+        self.bilinear_form = J
+        self.linear_form = F
+        self.bcs = bcs
+        NonlinearProblem.__init__(self)
+
+    def F(self, b, x):
+        assemble(self.linear_form, tensor=b)
+        for bc in self.bcs:
+            bc.apply(b, x)
+
+    def J(self, A, x):
+        assemble(self.bilinear_form, tensor=A, keep_diagonal=True,form_compiler_parameters=compiler_parameters)
+        for bc in self.bcs:
+            bc.apply(A)
+
+problem = Problem(J_total, F, bcs, compiler_parameters)
+custom_solver = CustomSolver()
+
 while t <= T + dt / 10 and not stop:  # + dt / 10 is a hack to ensure that we take the final time step t == T
     t += dt
 
@@ -162,7 +202,15 @@ while t <= T + dt / 10 and not stop:  # + dt / 10 is a hack to ensure that we ta
         vars().update(tmp_dict)
 
     # Solve
-    vars().update(newtonsolver(**vars()))
+
+    solve(-F_lin == J_linear, dvp_["n"], bcs)# LINEAR part wont even solve
+    print("solved linear guess")
+    #vars().update(newtonsolver(**vars()))
+    solve(F == 0, dvp_["n"], bcs, J=J_total, solver_parameters={"newton_solver":
+                                            {"relative_tolerance": 1e-7,"absolute_tolerance": 1e-8,"convergence_criterion":"residual", 'linear_solver': "superlu_dist"}}, form_compiler_parameters=compiler_parameters)
+    # "convergence_criterion":"incremental" seems to start converging quicker
+
+    #custom_solver.solve(problem, dvp_["n"].vector())
 
     # Update vectors
     for i, t_tmp in enumerate(times[:-1]):

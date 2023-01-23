@@ -44,8 +44,8 @@ def set_problem_parameters(default_variables, **namespace):
         nu_s=0.45,                     # Solid Poisson ratio [-]
         dx_f_id=1,                     # ID of marker in the fluid domain
         dx_s_id=2,                     # ID of marker in the solid domain
-        extrapolation="biharmonic",    # Laplace, elastic, biharmonic, no-extrapolation
-        extrapolation_sub_type="constrained_disp",  # ["constant", "small_constant", "volume", "volume_change", "constrained_disp", "constrained_disp_vel"]
+        extrapolation="laplace",    # Laplace, elastic, biharmonic, no-extrapolation
+        extrapolation_sub_type="constant",  # ["constant", "small_constant", "volume", "volume_change", "constrained_disp", "constrained_disp_vel"]
         recompute=15,                  # Recompute the Jacobian matrix every "recompute" Newton iterations
         checkpoint_step=10,            # Store results for restart every 10th timestep
         folder="turtle_demo_results"),  # Mame of the folder to save the data
