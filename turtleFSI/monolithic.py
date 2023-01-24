@@ -120,7 +120,7 @@ if MPI.rank(MPI.comm_world) == 0:
 
 # Define solver
 # Adding the Matrix() argument is a FEniCS 2018.1.0 hack
-up_sol = LUSolver(Matrix(), linear_solver)
+#up_sol = PETScLUSolver(method=linear_solver)
 
 # Get variation formulations
 exec("from turtleFSI.modules.{} import fluid_setup".format(fluid))

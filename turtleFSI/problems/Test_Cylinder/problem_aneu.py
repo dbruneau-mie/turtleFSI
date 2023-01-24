@@ -9,8 +9,10 @@ from os import path, makedirs, getcwd
 # David B, add stress code and xdmf for viz
 
 # set compiler arguments
-parameters["form_compiler"]["quadrature_degree"] = 6 # Not investigated thorougly. See MSc theses of Gjertsen. 
+parameters["form_compiler"]["quadrature_degree"] = 4 # Not investigated thorougly. See MSc theses of Gjertsen. 
 parameters["form_compiler"]["optimize"] = True
+#parameters["form_compiler"]["epsilon"] = 1e-10
+#parameters['form_compiler']['representation'] = 'uflacs' 
 # The "ghost_mode" has to do with the assembly of form containing the facet
 # normals n('+') within interior boundaries (dS). for 3D mesh the value should
 # be "shared_vertex", for 2D mesh "shared_facet", the default value is "none"
@@ -51,6 +53,7 @@ def set_problem_parameters(default_variables, **namespace):
         extrapolation="laplace",  # laplace, elastic, biharmonic, no-extrapolation
         # ["constant", "small_constant", "volume", "volume_change", "bc1", "bc2"]
         extrapolation_sub_type="constant",
+        compiler_parameters=_compiler_parameters,
         recompute=3000, # Number of iterations before recompute Jacobian. 
         recompute_tstep=1, # Number of time steps before recompute Jacobian. 
         save_step=1, # Save frequency of files for visualisation
