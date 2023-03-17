@@ -16,6 +16,9 @@ import time
 from turtleFSI.utils import *
 from turtleFSI.problems import *
 
+PETScOptions.set("ksp_view")
+PETScOptions.set("ksp_monitor_true_residual")
+
 # Get user input
 args = parse()
 

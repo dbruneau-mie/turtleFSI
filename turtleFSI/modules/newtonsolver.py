@@ -3,7 +3,7 @@
 # the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 # PURPOSE.
 
-from dolfin import assemble, derivative, TrialFunction, Matrix, norm, MPI, PETScLUSolver, as_backend_type
+from dolfin import assemble, derivative, TrialFunction, Matrix, norm, MPI, PETScLUSolver, as_backend_type, PETScOptions
 import time
 from petsc4py import PETSc
 
@@ -34,6 +34,19 @@ def solver_setup(F_fluid_linear, F_fluid_nonlinear, F_solid_linear, F_solid_nonl
     b = None
 
     up_sol = PETScLUSolver(as_backend_type(A), linear_solver) # followed: https://fenicsproject.discourse.group/t/parameters-in-fenics-2018-2019-equivalent-to-lusolver-mumps-from-2017/924/3
+    print(dir(up_sol))
+    print(up_sol.parameters.keys())
+    #up_sol.parameters["symmetric"] = True
+    print(up_sol.parameters.to_dict())
+    print(up_sol.parameters.keys)
+
+    print(up_sol.ksp())
+    print(dir(up_sol.parameters))
+    print(dir(up_sol.ksp()))
+
+    up_sol.ksp().rtol = 1e-6 # This syntax works for changing solver parameters
+    print(up_sol.ksp().view())
+
 
     # Option not available in FEniCS 2018.1.0
     # up_sol.parameters['reuse_factorization'] = True
@@ -59,7 +72,11 @@ def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_t
     # Capture if residual increases from last iteration
     last_rel_res = residual
     last_residual = rel_res
-    info_blue(compiler_parameters)
+    if counter == 10:
+        info_blue(compiler_parameters)
+        viewer = PETSc.Viewer().createASCII("cg_output_iter{}_ts{}.txt".format(iter,counter))
+        up_sol.ksp().view(viewer)     
+
     while rel_res > rtol and residual > atol and iter < max_it:
 
         info_blue("beginning of newton iteration loop, t = {}".format(time.time()-start_t))
@@ -90,6 +107,8 @@ def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_t
             [bc.apply(A) for bc in bcs]
             info_blue("after applying bcs, t = {}".format(time.time()-start_t))
             up_sol = PETScLUSolver(as_backend_type(A), linear_solver)
+
+
             info_blue("after setting operator for LUSolver, t = {}".format(time.time()-start_t))
 
         # Compute right hand side
@@ -103,13 +122,17 @@ def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_t
         info_blue("residual is (after bcs): {}".format(b.norm('l2')))
         info_blue("after applying bcs to b, t = {}".format(time.time()-start_t))
         up_sol.solve(dvp_res.vector(), b)
-        viewer = PETSc.Viewer().createASCII("cg_output_iter{}_ts{}.txt".format(iter,counter))
-        up_sol.ksp().view(viewer)
+        #info_blue(up_sol.ksp().view())
+
+        #viewer = PETSc.Viewer().createASCII("cg_output_iter{}_ts{}.txt".format(iter,counter))
+        #up_sol.ksp().view(viewer)
         info_blue("after calling LU Solver t = {}".format(time.time()-start_t))
         info_blue("residual is (after bcs): {}".format(b.norm('l2')))
         dvp_["n"].vector().axpy(lmbda, dvp_res.vector())
         [bc.apply(dvp_["n"].vector()) for bc in bcs]
         info_blue("after setting residual and applying bcs, t = {}".format(time.time()-start_t))
+        PETScOptions.set("ksp_view")
+
 
         # Reset residuals
         last_residual = residual
